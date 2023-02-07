@@ -17,6 +17,7 @@ import re
 import itertools
 import collections
 
+
 def draw_plot(r, f, imgname):
     # Data for plotting
     x = np.asarray(r)
@@ -49,86 +50,93 @@ class Tokenizer:
         For the default setting, make sure you consider cases of:
             1) Words ending with punctuation (e.g., 'hiking.' ——> ['hiking', '.']);
             2) Numbers (e.g., '1/2', '12.5')
-            3) Possessive case (e.g., "Elle's book" ——> ["elle's", "book"]). It's also fine if you follow 
+            3) Possessive case (e.g., "Elle's book" ——> ["elle's", "book"]). It's also fine if you follow
                nltk's output for this case, we won't make a strict rule here.
-            4) Title abbrevation - Mr., Mrs., Ms. ——> you can either remove the '.' before tokenization 
-               or remain the token as a whole (e.g., 'Mr.' ——> 'mr.'). 
+            4) Title abbrevation - Mr., Mrs., Ms. ——> you can either remove the '.' before tokenization
+               or remain the token as a whole (e.g., 'Mr.' ——> 'mr.').
                You don't need to consider other special abbr like U.S., Ph.D., etc.
 
-            For other corner cases (e.g. emoticons such as :D, units such as $, and other ill-formed English), you can check the output of 
+            For other corner cases (e.g. emoticons such as :D, units such as $, and other ill-formed English), you can check the output of
             nltk.word_tokenize for reference. We won't punish you if your results are not the same as its outputs on other cases.
 
-        For the bpe setting, 
-            1) Tune the number of iterations so the vocab size will be close to the 
+        For the bpe setting,
+            1) Tune the number of iterations so the vocab size will be close to the
                default one's (approximately, the vocab size is about 13,000)
-            2) During merge, for sub-sequences of the same frequency, break the tie 
+            2) During merge, for sub-sequences of the same frequency, break the tie
                with left-to-right byte order precedence
-        
-        PS: This method is mandatory to implement to get a vocab 
+
+        PS: This method is mandatory to implement to get a vocab
             which you can utilize in tokenize_sentence
         '''
         # TODO Modify the code here
 
         self.text = self.text.lower()
-        iteration = 10
-
-        words = set(self.text.split())
 
         if not self.bpe:
+            words = set(self.text.split())
             words = [word.strip('? — " “ ”_ , ! ; ( ) [ ] : ：') for word in words]
             words = [word.strip('.') if word not in ['mr.', 'ms.', 'mrs.'] else word
                      for word in words]
             vocab = set(words)
-            
         else:
             # Token Learner
-            vocab = sorted(set(list(self.text)))
+            corpus = collections.defaultdict(int)
+            words = self.text.strip().split()
+            for word in words:
+                corpus[' '.join(list(word)) + '_'] += 1
 
-            words = [word.strip('? — " “ ”_ , ! ; ( ) [ ] : ：.') for word in words]
-            words_stat = {word+'_':freq for word, freq in collections.Counter(words).items()}
+            iteration = 16000
+            print('==========')
 
-            token_freq = {}
-
-            best = vocab.copy()
-            
             for i in range(iteration):
-                tmp1 = [''.join(comb) for comb in itertools.product(vocab, best)]
-                tmp2 = [''.join(comb) for comb in itertools.product(best, vocab)]
-                tmp = tmp1 + tmp2
-                print(len(vocab))
-                for token in tmp:
-                    if token in token_freq:
-                        continue
-                    for word in words_stat:
-                        if token in word:
-                            token_freq[token] = token_freq.setdefault(token, 0) + words_stat[word]
+                pairs = collections.defaultdict(int)
+                for word in corpus:
+                    tokens = word.split()
+                    # print(tokens)
+                    for j in range(len(tokens)-1):
+                        pairs[tokens[j], tokens[j+1]] += corpus[word]
 
-                # add a new merged token to vocabulary
-                best = max(token_freq, key=token_freq.get)
-                token_freq[best] = -1
-                vocab.append(best)
-                print(best)
+                best = max(pairs, key=pairs.get)
 
-            # Token Segmenter
+                # Adding a new merged token to vocabulary as well as replacing words in corpus with the 'best' token
+                merged = re.escape(' '.join(best))
+                pattern = re.compile(r'(?<!\S)'+merged+r'(?!\S)')
+
+                vocab = collections.defaultdict(int)
+                corpus_new = {}
+
+                for word in corpus:
+                    new_word = re.sub(pattern, ''.join(best), word)
+                    corpus_new[new_word] = corpus[word]
+                    tokens = new_word.split()
+                    for token in tokens:
+                        vocab[token] += corpus_new[new_word]
+
+                corpus = corpus_new
+
+                #print('Iter: {}'.format(i))
+                #print('Best pair: {}'.format(best))
+                #print('Vocab: {}'.format(vocab))
+                print('Number of tokens: {}'.format(len(vocab)))
+                # print('==========')
             # print(len(words_stat))
-
 
         pass
 
     def tokenize_sentence(self, sentence):
         '''
-        To verify your implementation, we will test this method by 
-        input a sentence specified by us.  
+        To verify your implementation, we will test this method by
+        input a sentence specified by us.
         Please return the list of tokens as the result of tokenization.
 
         E.g. basic tokenizer (default setting)
         [In] sentence="I give 1/2 of the apple to my ten-year-old sister."
         [Out] return ['i', 'give', '1/2', 'of', 'the', 'apple', 'to', 'my', 'ten-year-old', 'sister', '.']
-        
+
         Hint: For BPE, you may need to fix the vocab before tokenizing
               the input sentence
-        
-        PS: This method is mandatory to implement with the method signature as-is. 
+
+        PS: This method is mandatory to implement with the method signature as-is.
         '''
         # TODO Modify the code here
         pass
@@ -137,7 +145,7 @@ class Tokenizer:
         '''
         Plot relative frequency versus rank of word to check
         Zipf's law
-        You may want to use matplotlib and the function shown 
+        You may want to use matplotlib and the function shown
         above to create plots
         Relative frequency f = Number of times the word occurs /
                                 Total number of word tokens
@@ -174,21 +182,21 @@ if __name__ == '__main__':
         rst2 = bpe_tokenizer.tokenize_sentence(case)
 
         ##= check the basic tokenizer =##
-        # ['the', "foundation's", 'business', 'office', 'is', 'located', 'at', 
-        # '809', 'north', '1500', 'west', ',', 'salt', 'lake', 'city', ',', 'ut', 
+        # ['the', "foundation's", 'business', 'office', 'is', 'located', 'at',
+        # '809', 'north', '1500', 'west', ',', 'salt', 'lake', 'city', ',', 'ut',
         # '84116', ',', '(', '801', ')', '596-1887', '.']
         # or
-        # ['the', 'foundation', "'s", 'business', 'office', 'is', 'located', 'at', 
-        # '809', 'north', '1500', 'west', ',', 'salt', 'lake', 'city', ',', 'ut', 
+        # ['the', 'foundation', "'s", 'business', 'office', 'is', 'located', 'at',
+        # '809', 'north', '1500', 'west', ',', 'salt', 'lake', 'city', ',', 'ut',
         # '84116', ',', '(', '801', ')', '596-1887', '.']
         print(rst1)
 
         ##= check the bpe tokenizer =##
-        # ['the_', 'f', 'ou', 'n', 'd', 'a', 'ti', 'on', "'", 's_', 'bu', 
-        # 's', 'in', 'es', 's_', 'o', 'f', 'f', 'i', 'c', 'e_', 'is_', 'l', 
-        # 'o', 'c', 'at', 'ed_', 'at_', '8', '0', '9', '_', 'n', 'or', 'th_', 
-        # '1', '5', '0', '0', '_', 'w', 'es', 't', ',_', 's', 'al', 't_', 'l', 
-        # 'a', 'k', 'e_', 'c', 'it', 'y', ',_', 'u', 't_', '8', '4', '1', '1', 
-        # '6', ',_', '(', '8', '0', '1', ')', '_', '5', '9', '6', '-', '1', '8', 
+        # ['the_', 'f', 'ou', 'n', 'd', 'a', 'ti', 'on', "'", 's_', 'bu',
+        # 's', 'in', 'es', 's_', 'o', 'f', 'f', 'i', 'c', 'e_', 'is_', 'l',
+        # 'o', 'c', 'at', 'ed_', 'at_', '8', '0', '9', '_', 'n', 'or', 'th_',
+        # '1', '5', '0', '0', '_', 'w', 'es', 't', ',_', 's', 'al', 't_', 'l',
+        # 'a', 'k', 'e_', 'c', 'it', 'y', ',_', 'u', 't_', '8', '4', '1', '1',
+        # '6', ',_', '(', '8', '0', '1', ')', '_', '5', '9', '6', '-', '1', '8',
         # '8', '7', '._']
         print(rst2)
