@@ -40,6 +40,7 @@ class Tokenizer:
             self.text = f.read()
 
         self.bpe = bpe
+        self.vocab = None
         self.lowercase = lowercase
 
     def tokenize(self):
@@ -83,34 +84,37 @@ class Tokenizer:
             corpus = collections.defaultdict(int)
             words = self.text.strip().split()
             for word in words:
-                corpus[' '.join(list(word)) + '_'] += 1
+                corpus[' '.join(list(word)) + ' _'] += 1
 
-            iteration = 16000
+            iteration = 13200
             print('==========')
 
+            vocab = sorted(set(list(self.text)))
+            
             for i in range(iteration):
                 pairs = collections.defaultdict(int)
                 for word in corpus:
                     tokens = word.split()
-                    # print(tokens)
+                    
                     for j in range(len(tokens)-1):
                         pairs[tokens[j], tokens[j+1]] += corpus[word]
 
                 best = max(pairs, key=pairs.get)
 
+                vocab.append(best)
                 # Adding a new merged token to vocabulary as well as replacing words in corpus with the 'best' token
                 merged = re.escape(' '.join(best))
                 pattern = re.compile(r'(?<!\S)'+merged+r'(?!\S)')
 
-                vocab = collections.defaultdict(int)
+                # vocab = collections.defaultdict(int)
                 corpus_new = {}
 
                 for word in corpus:
                     new_word = re.sub(pattern, ''.join(best), word)
                     corpus_new[new_word] = corpus[word]
-                    tokens = new_word.split()
-                    for token in tokens:
-                        vocab[token] += corpus_new[new_word]
+                    # tokens = new_word.split()
+                    # for token in tokens:
+                    #     vocab[token] += corpus_new[new_word]
 
                 corpus = corpus_new
 
@@ -121,7 +125,10 @@ class Tokenizer:
                 # print('==========')
             # print(len(words_stat))
 
-        pass
+        
+        self.vocab = vocab
+        
+        return
 
     def tokenize_sentence(self, sentence):
         '''
@@ -139,7 +146,28 @@ class Tokenizer:
         PS: This method is mandatory to implement with the method signature as-is.
         '''
         # TODO Modify the code here
-        pass
+
+        rst = []
+        sentence = sentence.lower()
+
+        if self.bpe:
+            words = sentence[0].split()
+            testset = [' '.join(word) + ' _' for word in sentence.split()]
+
+            for i in range(len(testset)):
+                for token in self.vocab:
+                    if len(token) < 2:
+                        continue
+                    merged = re.escape(' '.join(token))
+                    pattern = re.compile(r'(?<!\S)'+merged+r'(?!\S)')
+                    new_word = re.sub(pattern, ''.join(token), testset[i])
+                    testset[i] = new_word
+                
+                rst += testset[i].split()
+        
+        return rst
+
+
 
     def plot_word_frequency(self):
         '''
