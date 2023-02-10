@@ -18,9 +18,9 @@
 ##  recommended resources and libraries.                                 ##
 ###########################################################################
 
-# import random, math
+import random, math
 import collections
-
+import re
 
 class NgramLM(object):
 
@@ -47,10 +47,13 @@ class NgramLM(object):
         # TODO Write your code here
         self.n = n
         self.k = k
+        self.text = None
 
         # Fields below are optional but recommended; you may replace as you like
-        self.ngram_dict = collections.defaultdict()
+        self.ngram_dict = collections.defaultdict(int)
+        self.vocabs = collections.defaultdict(int)
         self.special_tokens = {'bos': '~', 'eos': '<EOS>'}
+        self.read_file(path)
 
     def read_file(self, path: str):
         ''' Reads text from file path and initiate n-gram corpus.
@@ -60,7 +63,12 @@ class NgramLM(object):
             which you may call in the method of __init__ 
         '''
         # TODO Write your code here
-        pass
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            text = f.read()
+        # print(text)
+        self.text = text
+        self.init_corpus(text)
+
 
     def init_corpus(self, text: str):
         ''' Initiates n-gram corpus based on loaded text
@@ -70,9 +78,20 @@ class NgramLM(object):
             which you may call in the method of read_file 
         '''
         # TODO Write your code here
-        pass
+        text = text.replace(")",' ')
+        text = text.replace("(",' ')
+        text = text.replace("“",' ')
+        text = text.replace("”",' ')
 
-    def get_vocab_from_tokens(self, tokens):
+        sentences = re.split(r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<![A-Z][a-z][a-z]\.)(?<=[.?,!;])\s", text)
+        sentences = [sentence.replace('\n',' ') for sentence in sentences]
+        
+        self.get_ngrams_from_seqs(sentences)
+        self.get_vocab_from_tokens(sentences)
+        
+        return
+
+    def get_vocab_from_tokens(self, sentences):
         ''' Returns the vocabulary (e.g. {word: count}) from a list of tokens
 
         Hint: to get the vocabulary, you need to first tokenize the corpus.
@@ -82,7 +101,19 @@ class NgramLM(object):
             which you may call in the method of init_corpus.
         '''
         # TODO Write your code here
-        pass
+
+        for sentence in sentences:
+            if len(sentence) == 0:
+                continue
+            sentence = sentence[:-1] + ' ' + sentence[-1]
+            words = sentence.split()
+            for word in words:
+                # if 'mother' in word:
+                #     print(word)
+                self.vocabs[word] += 1
+        
+        return
+        
 
     def get_ngrams_from_seqs(self, sentences):
         ''' Returns ngrams of the text as list of pairs - [(sequence context, word)] 
@@ -96,7 +127,16 @@ class NgramLM(object):
             which you may call in the method of init_corpus 
         '''
         # TODO Write your code here
-        pass
+        sentences = [ self.add_padding_to_seq(sentence) for sentence in sentences]
+        sentences = [sentence.split() for sentence in sentences]
+        
+        for words in sentences:
+            if words == []:
+                continue
+            for i in range(len(words)-self.n+1):
+                self.ngram_dict[tuple(words[i:i+self.n])] += 1
+
+        return
 
     def add_padding_to_seq(self, sentence: str):
         '''  Adds paddings to a sentence.
@@ -109,7 +149,11 @@ class NgramLM(object):
         '''
         # TODO Write your code here
         # Use '~' as your padding symbol
-        pass
+        if len(sentence) >= 1:
+            return '~ ' + sentence[:-1] + ' ' + sentence[-1]
+        else:
+            return ''
+
 
     def get_next_word_probability(self, text: str, word: str):
         ''' Returns probability of a word occurring after specified text, 
@@ -120,7 +164,9 @@ class NgramLM(object):
             which you may call in the method of generate_word         
         '''
         # TODO Write your code here
-        pass
+        
+
+        return
 
     def generate_word(self, text: str):
         '''
@@ -177,11 +223,13 @@ if __name__ == '__main__':
         "They just entered a beautiful walk by", 
         "They had just spotted a snake entering"]
 
-    for case in test_cases:
-        word = LM.generate_word(case)
-        ppl = LM.get_perplexity(case)
-        print(f'input text: {case}\nnext word: {word}\nppl: {ppl}')
+    # print(LM.vocabs)
+
+    # for case in test_cases:
+    #     word = LM.generate_word(case)
+    #     ppl = LM.get_perplexity(case)
+    #     print(f'input text: {case}\nnext word: {word}\nppl: {ppl}')
     
-    _len = 7
-    text = LM.generate_text(length=_len)
-    print(f'\npredicted text of length {_len}: {text}')
+    # _len = 7
+    # text = LM.generate_text(length=_len)
+    # print(f'\npredicted text of length {_len}: {text}')
