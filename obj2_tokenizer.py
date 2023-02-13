@@ -14,7 +14,7 @@
 import matplotlib.pyplot as plt  # Requires matplotlib to create plots.
 import numpy as np  # Requires numpy to represent the numbers
 import re
-import itertools
+import scipy.stats
 import collections
 
 
@@ -70,41 +70,57 @@ class Tokenizer:
             which you can utilize in tokenize_sentence
         '''
         # TODO Modify the code here
-
-        self.text = self.text.lower()
-
+        print("===========Program Run===========")
         if not self.bpe:
-            words = set(self.text.split())
-            words = [word.strip('? — " “ ”_ , ! ; ( ) [ ] : ：') for word in words]
-            words = [word.strip('.') if word not in ['mr.', 'ms.', 'mrs.'] else word
-                     for word in words]
-            vocab = set(words)
+            vocab = []
+            # Title abbreviation before lower case
+            words = re.findall(r'\b[A-Z][a-z]{1,2}\.+', self.text)
+            vocab += set(words)
+
+            if self.lowercase:
+                self.text = self.text.lower()
+
+            # Float Number
+            words = re.findall(r'[0-9]+\.[0-9]+', self.text)
+            vocab += set(words)
+            words = re.findall(r'[0-9]+\/[0-9]+', self.text)
+            vocab += set(words)
+
+            # Possessive case and Words ending with punctuation
+            words = re.findall(r'\b[\w\'\/-]+\b|[^\w\s]+', self.text)
+            vocab += set(words)
+            vocab = list(set(vocab))
+
         else:
+            if self.lowercase:
+                self.text = self.text.lower()
+
             # Token Learner
             corpus = collections.defaultdict(int)
             words = self.text.strip().split()
             for word in words:
                 corpus[' '.join(list(word)) + ' _'] += 1
 
-            iteration = 13200
-            print('==========')
+            iteration = 100
+
+            # print('==========')
 
             vocab = sorted(set(list(self.text)))
-            
+
             for i in range(iteration):
                 pairs = collections.defaultdict(int)
                 for word in corpus:
                     tokens = word.split()
-                    
-                    for j in range(len(tokens)-1):
-                        pairs[tokens[j], tokens[j+1]] += corpus[word]
+
+                    for j in range(len(tokens) - 1):
+                        pairs[tokens[j], tokens[j + 1]] += corpus[word]
 
                 best = max(pairs, key=pairs.get)
 
                 vocab.append(best)
                 # Adding a new merged token to vocabulary as well as replacing words in corpus with the 'best' token
                 merged = re.escape(' '.join(best))
-                pattern = re.compile(r'(?<!\S)'+merged+r'(?!\S)')
+                pattern = re.compile(r'(?<!\S)' + merged + r'(?!\S)')
 
                 # vocab = collections.defaultdict(int)
                 corpus_new = {}
@@ -118,16 +134,14 @@ class Tokenizer:
 
                 corpus = corpus_new
 
-                #print('Iter: {}'.format(i))
-                #print('Best pair: {}'.format(best))
-                #print('Vocab: {}'.format(vocab))
-                print('Number of tokens: {}'.format(len(vocab)))
+                # print('Iter: {}'.format(i))
+                # print('Best pair: {}'.format(best))
+                # print('Vocab: {}'.format(vocab))
+                #print('Number of tokens: {}'.format(len(vocab)))
                 # print('==========')
-            # print(len(words_stat))
 
-        
         self.vocab = vocab
-        
+        print(f"BPE:{self.bpe} === Done")
         return
 
     def tokenize_sentence(self, sentence):
@@ -151,23 +165,23 @@ class Tokenizer:
         sentence = sentence.lower()
 
         if self.bpe:
-            words = sentence[0].split()
-            testset = [' '.join(word) + ' _' for word in sentence.split()]
-
-            for i in range(len(testset)):
+            test_set = [' '.join(word) + ' _' for word in sentence.split()]
+            for i in range(len(test_set)):
                 for token in self.vocab:
                     if len(token) < 2:
                         continue
                     merged = re.escape(' '.join(token))
-                    pattern = re.compile(r'(?<!\S)'+merged+r'(?!\S)')
-                    new_word = re.sub(pattern, ''.join(token), testset[i])
-                    testset[i] = new_word
-                
-                rst += testset[i].split()
-        
+                    pattern = re.compile(r'(?<!\S)' + merged + r'(?!\S)')
+                    new_word = re.sub(pattern, ''.join(token), test_set[i])
+                    test_set[i] = new_word
+
+                rst += test_set[i].split()
+        else:
+            words = re.findall(r'\b[\w\'\/-]+\b|[^\w\s]+', sentence)
+            for word in words:
+                if word in self.vocab:
+                    rst.append(word)
         return rst
-
-
 
     def plot_word_frequency(self):
         '''
@@ -180,7 +194,24 @@ class Tokenizer:
         Rank r = Index of the word according to word occurence list
         '''
         # TODO Modify the code here
-        pass
+        words_freq = {}
+        if self.bpe:
+            rst = self.tokenize_sentence(self.text)
+        else:
+            rst = self.tokenize_sentence(self.text)
+
+        for word in rst:
+            if word in words_freq:
+                words_freq[word] += 1
+            else:
+                words_freq[word] = 1
+
+        f = np.log(np.array(list(words_freq.values())) / len(rst))
+        asc = scipy.stats.rankdata(f, method='average')
+        r = np.log(np.max(asc) + 1 - asc)
+
+        draw_plot(r, f, f'Relative frequency versus rank BPE:{self.bpe}')
+
 
 
 if __name__ == '__main__':
@@ -209,6 +240,8 @@ if __name__ == '__main__':
         rst1 = basic_tokenizer.tokenize_sentence(case)
         rst2 = bpe_tokenizer.tokenize_sentence(case)
 
+        basic_tokenizer.plot_word_frequency()
+        bpe_tokenizer.plot_word_frequency()
         ##= check the basic tokenizer =##
         # ['the', "foundation's", 'business', 'office', 'is', 'located', 'at',
         # '809', 'north', '1500', 'west', ',', 'salt', 'lake', 'city', ',', 'ut',
