@@ -14,7 +14,6 @@
 import matplotlib.pyplot as plt  # Requires matplotlib to create plots.
 import numpy as np  # Requires numpy to represent the numbers
 import re
-import scipy.stats
 import collections
 
 
@@ -71,13 +70,13 @@ class Tokenizer:
         '''
         # TODO Modify the code here
         print("===========Program Run===========")
-        if not self.bpe:
+        if not self.bpe or self.bpe == 'NO':
             vocab = []
             # Title abbreviation before lower case
             words = re.findall(r'\b[A-Z][a-z]{1,2}\.+', self.text)
             vocab += set(words)
 
-            if self.lowercase:
+            if self.lowercase or self.lowercase == 'YES':
                 self.text = self.text.lower()
 
             # Float Number
@@ -92,7 +91,7 @@ class Tokenizer:
             vocab = list(set(vocab))
 
         else:
-            if self.lowercase:
+            if self.lowercase or self.lowercase == 'YES':
                 self.text = self.text.lower()
 
             # Token Learner
@@ -164,7 +163,7 @@ class Tokenizer:
         rst = []
         sentence = sentence.lower()
 
-        if self.bpe:
+        if self.bpe or self.bpe == 'YES':
             test_set = [' '.join(word) + ' _' for word in sentence.split()]
             for i in range(len(test_set)):
                 for token in self.vocab:
@@ -195,10 +194,8 @@ class Tokenizer:
         '''
         # TODO Modify the code here
         words_freq = {}
-        if self.bpe:
-            rst = self.tokenize_sentence(self.text)
-        else:
-            rst = self.tokenize_sentence(self.text)
+
+        rst = self.tokenize_sentence(self.text)
 
         for word in rst:
             if word in words_freq:
@@ -207,8 +204,10 @@ class Tokenizer:
                 words_freq[word] = 1
 
         f = np.log(np.array(list(words_freq.values())) / len(rst))
-        asc = scipy.stats.rankdata(f, method='average')
-        r = np.log(np.max(asc) + 1 - asc)
+        # asc = scipy.stats.rankdata(f, method='average')
+        # r = np.log(np.max(asc) + 1 - asc)
+        f = - np.sort(-f)
+        r = np.log(np.arange(len(f)) + 1)
 
         draw_plot(r, f, f'Relative frequency versus rank BPE:{self.bpe}')
 
